@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק תכנון החתונה של מיכל ושמוליק</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress {
+            height: 100%;
+            background-color: #4caf50;
+            transition: width 0.3s ease-in-out;
+        }
+        .tasks {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .task {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .task:hover {
+            background-color: #e0e0e0;
+        }
+        .task:disabled {
+            background-color: #d0d0d0;
+            cursor: not-allowed;
+        }
+        .task-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 5px;
+        }
+        .close {
+            color: #aaa;
+            float: left;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #000;
+        }
+        #theme-button {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>משחק תכנון החתונה של מיכל ושמוליק</h1>
+    <button id="theme-button">שנה נושא: רגיל</button>
+    <div class="game-info">
+        <div>ניקוד: <span id="score">0</span></div>
+        <div>זמן נותר: <span id="time-left">6:00</span></div>
+    </div>
+    <div class="progress-bar">
+        <div class="progress" id="progress"></div>
+    </div>
+    <div>משימות שהושלמו: <span id="completed-tasks">0</span> / 12</div>
+    <div class="tasks" id="tasks"></div>
+
+    <div id="fun-fact-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>עובדה מעניינת!</h2>
+            <p id="fun-fact"></p>
+        </div>
+    </div>
+
+    <div id="congrats-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>מזל טוב, מיכל ושמוליק!</h2>
+            <p id="congrats-message"></p>
+        </div>
+    </div>
+
+    <script>
+        const tasks = [
+            { id: 1, name: 'בחירת תאריך', points: 10, icon: '📅', funFact: 'מיכל ושמוליק נפגשו לראשונה בתאריך הזה לפני שנתיים!' },
+            { id: 2, name: 'קביעת תקציב', points: 15, icon: '💰', funFact: 'שמוליק רצה להשקיע הכל בטבעת, מיכל העדיפה לחסוך לירח דבש' },
+            { id: 3, name: 'בחירת מקום לאירוע', points: 20, icon: '🏰', funFact: 'הם כמעט בחרו מקום ליד הים, אבל נזכרו ששמוליק אלרגי לחול' },
+            { id: 4, name: 'הזמנת קייטרינג', points: 15, icon: '🍽️', funFact: 'מיכל התעקשה על אוכל טבעוני, שמוליק הסכים בתנאי שיהיה גם שניצל' },
+            { id: 5, name: 'שליחת הזמנות', points: 10, icon: '✉️', funFact: 'הם שקלו לשלוח הזמנות בבקבוקים, אבל ויתרו בגלל איכות הסביבה' },
+            { id: 6, name: 'בחירת שמלת כלה', points: 25, icon: '👰', funFact: 'מיכל מדדה 42 שמלות לפני שמצאה את השמלה המושלמת' },
+            { id: 7, name: 'הזמנת צלם', points: 10, icon: '📷', funFact: 'שמוליק רצה שהכלב שלהם יהיה הצלם, מיכל לא הסכימה משום מה' },
+            { id: 8, name: 'בחירת מוזיקה', points: 15, icon: '🎵', funFact: 'הם רבו על השיר לריקוד הראשון: שמוליק רצה מטאליקה, מיכל העדיפה ביונסה' },
+            { id: 9, name: 'הזמנת עוגת חתונה', points: 10, icon: '🎂', funFact: 'הם בחרו עוגה בצורת לב, אבל עם טעם של פלאפל - החביב עליהם' },
+            { id: 10, name: 'עיצוב פרחים', points: 15, icon: '💐', funFact: 'מיכל רצתה פרחים בצבעי קשת, שמוליק הציע להוסיף גם קקטוסים' },
+            { id: 11, name: 'בחירת מתנות לאורחים', points: 10, icon: '🎁', funFact: 'הם החליטו על צבי ים קטנים מקרמיקה, כי שניהם אוהבים את הים' },
+            { id: 12, name: 'תכנון ירח דבש', points: 20, icon: '🐢', funFact: 'הם בחרו באי גלפגוס כדי לראות צבי ענק ולהרגיש כמו חדי קרן' },
+        ];
+
+        let score = 0;
+        let completedTasks = [];
+        let timeLeft = 360; // 6 minutes in seconds
+        let timerInterval;
+        let currentTheme = 'רגיל';
+
+        const scoreElement = document.getElementById('score');
+        const timeLeftElement = document.getElementById('time-left');
+        const completedTasksElement = document.getElementById('completed-tasks');
+        const progressElement = document.getElementById('progress');
+        const tasksContainer = document.getElementById('tasks');
+        const funFactModal = document.getElementById('fun-fact-modal');
+        const funFactElement = document.getElementById('fun-fact');
+        const congratsModal = document.getElementById('congrats-modal');
+        const congratsMessage = document.getElementById('congrats-message');
+        const themeButton = document.getElementById('theme-button');
+
+        function initializeTasks() {
+            tasks.forEach(task => {
+                const taskButton = document.createElement('button');
+                taskButton.className = 'task';
+                taskButton.innerHTML = `
+                    <div class="task-icon">${task.icon}</div>
+                    <div>${task.name}</div>
+                `;
+                taskButton.onclick = () => completeTask(task);
+                tasksContainer.appendChild(taskButton);
+            });
+        }
+
+        function completeTask(task) {
+            if (!completedTasks.includes(task.id)) {
+                score += task.points;
+                completedTasks.push(task.id);
+                updateUI();
+                showFunFact(task.funFact);
+                if (completedTasks.length === tasks.length) {
+                    endGame();
+                }
+            }
+        }
+
+        function updateUI() {
+            scoreElement.textContent = score;
+            completedTasksElement.textContent = completedTasks.length;
+            progressElement.style.width = `${(completedTasks.length / tasks.length) * 100}%`;
+            tasks.forEach((task, index) => {
+                tasksContainer.children[index].disabled = completedTasks.includes(task.id);
+            });
+        }
+
+        function showFunFact(fact) {
+            funFactElement.textContent = fact;
+            funFactModal.style.display = 'block';
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timeLeftElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                if (timeLeft === 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            const message = timeLeft > 0
+                ? `וואו! הספקתם לתכנן את כל החתונה בזמן שיא! הניקוד הסופי שלכם: ${score}`
+                : `הזמן נגמר, אבל אל דאגה - החתונה תהיה מושלמת! הניקוד הסופי שלכם: ${score}`;
+            congratsMessage.textContent = message;
+            congratsModal.style.display = 'block';
+        }
+
+        function changeTheme() {
+            const themes = ['רגיל', 'קסום', 'טרופי', 'חלומי'];
+            const currentIndex = themes.indexOf(currentTheme);
+            currentTheme = themes[(currentIndex + 1) % themes.length];
+            themeButton.textContent = `שנה נושא: ${currentTheme}`;
+            
+            switch (currentTheme) {
+                case 'קסום':
+                    document.body.style.background = 'linear-gradient(to right, #a18cd1, #fbc2eb)';
+                    break;
+                case 'טרופי':
+                    document.body.style.background = 'linear-gradient(to right, #43c6ac, #191654)';
+                    break;
+                case 'חלומי':
+                    document.body.style.background = 'linear-gradient(to right, #89f7fe, #66a6ff)';
+                    break;
+                default:
+                    document.body.style.background = 'white';
+            }
+        }
+
+        // Initialize game
+        initializeTasks();
+        startTimer();
+
+        // Event listeners
+        themeButton.onclick = changeTheme;
+        document.querySelectorAll('.close').forEach(closeButton => {
+            closeButton.onclick = () => {
+                funFactModal.style.display = 'none';
+                congratsModal.style.display = 'none';
+            };
+        });
+
+        window.onclick = (event) => {
+            if (event.target === funFactModal || event.target === congratsModal) {
+                funFactModal.style.display = 'none';
+                congratsModal.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>
