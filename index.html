@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משחק תכנון החתונה של מיכל ושמוליק</title>
+    <title>משחק תכנון החתונה המשופר של מיכל ושמוליק</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             text-align: center;
+            transition: background-color 0.5s;
         }
         h1 {
             margin-bottom: 20px;
@@ -35,7 +36,7 @@
         }
         .tasks {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 10px;
         }
         .task {
@@ -44,10 +45,11 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s;
+            transition: background-color 0.3s, transform 0.1s;
         }
         .task:hover {
             background-color: #e0e0e0;
+            transform: scale(1.05);
         }
         .task:disabled {
             background-color: #d0d0d0;
@@ -86,22 +88,31 @@
         .close:hover {
             color: #000;
         }
-        #theme-button {
+        #theme-button, #difficulty-select {
             margin-bottom: 10px;
+        }
+        #high-scores {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>משחק תכנון החתונה של מיכל ושמוליק</h1>
+    <h1>משחק תכנון החתונה המשופר של מיכל ושמוליק</h1>
     <button id="theme-button">שנה נושא: רגיל</button>
+    <select id="difficulty-select">
+        <option value="easy">קל</option>
+        <option value="medium" selected>בינוני</option>
+        <option value="hard">קשה</option>
+    </select>
     <div class="game-info">
         <div>ניקוד: <span id="score">0</span></div>
         <div>זמן נותר: <span id="time-left">6:00</span></div>
+        <div>בונוס זמן: <span id="bonus-time">0</span></div>
     </div>
     <div class="progress-bar">
         <div class="progress" id="progress"></div>
     </div>
-    <div>משימות שהושלמו: <span id="completed-tasks">0</span> / 12</div>
+    <div>משימות שהושלמו: <span id="completed-tasks">0</span> / <span id="total-tasks">12</span></div>
     <div class="tasks" id="tasks"></div>
 
     <div id="fun-fact-modal" class="modal">
@@ -120,6 +131,11 @@
         </div>
     </div>
 
+    <div id="high-scores">
+        <h3>שיאים</h3>
+        <ol id="high-scores-list"></ol>
+    </div>
+
     <script>
         const tasks = [
             { id: 1, name: 'בחירת תאריך', points: 10, icon: '📅', funFact: 'מיכל ושמוליק נפגשו לראשונה בתאריך הזה לפני שנתיים!' },
@@ -134,17 +150,26 @@
             { id: 10, name: 'עיצוב פרחים', points: 15, icon: '💐', funFact: 'מיכל רצתה פרחים בצבעי קשת, שמוליק הציע להוסיף גם קקטוסים' },
             { id: 11, name: 'בחירת מתנות לאורחים', points: 10, icon: '🎁', funFact: 'הם החליטו על צבי ים קטנים מקרמיקה, כי שניהם אוהבים את הים' },
             { id: 12, name: 'תכנון ירח דבש', points: 20, icon: '🐢', funFact: 'הם בחרו באי גלפגוס כדי לראות צבי ענק ולהרגיש כמו חדי קרן' },
+            { id: 13, name: 'בחירת טבעות', points: 15, icon: '💍', funFact: 'שמוליק הציע טבעות מקושטות בדמויות פוקימון, מיכל הסכימה בתנאי שיהיו זהב לבן' },
+            { id: 14, name: 'תכנון ריקוד ראשון', points: 20, icon: '💃', funFact: 'הם למדו ריקוד סלסה, אבל בסוף החליטו לרקוד ואלס עם טוויסט מודרני' },
+            { id: 15, name: 'בחירת תלבושת לחתן', points: 15, icon: '🤵', funFact: 'שמוליק רצה ללבוש חליפת סופרמן, מיכל שכנעה אותו ללכת על טוקסידו קלאסי' },
+            { id: 16, name: 'הכנת רשימת שירים', points: 10, icon: '🎶', funFact: 'הם כללו שיר מכל עשור מאז שנות ה-50, כולל גרסת דאבסטפ ל"הבה נגילה"' }
         ];
 
         let score = 0;
         let completedTasks = [];
         let timeLeft = 360; // 6 minutes in seconds
+        let bonusTime = 0;
         let timerInterval;
         let currentTheme = 'רגיל';
+        let difficulty = 'medium';
+        let highScores = JSON.parse(localStorage.getItem('highScores')) || [];
 
         const scoreElement = document.getElementById('score');
         const timeLeftElement = document.getElementById('time-left');
+        const bonusTimeElement = document.getElementById('bonus-time');
         const completedTasksElement = document.getElementById('completed-tasks');
+        const totalTasksElement = document.getElementById('total-tasks');
         const progressElement = document.getElementById('progress');
         const tasksContainer = document.getElementById('tasks');
         const funFactModal = document.getElementById('fun-fact-modal');
@@ -152,9 +177,23 @@
         const congratsModal = document.getElementById('congrats-modal');
         const congratsMessage = document.getElementById('congrats-message');
         const themeButton = document.getElementById('theme-button');
+        const difficultySelect = document.getElementById('difficulty-select');
+        const highScoresList = document.getElementById('high-scores-list');
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
 
         function initializeTasks() {
-            tasks.forEach(task => {
+            tasksContainer.innerHTML = '';
+            completedTasks = [];
+            shuffleArray(tasks);
+            const numTasks = difficulty === 'easy' ? 8 : (difficulty === 'medium' ? 12 : 16);
+            totalTasksElement.textContent = numTasks;
+            tasks.slice(0, numTasks).forEach(task => {
                 const taskButton = document.createElement('button');
                 taskButton.className = 'task';
                 taskButton.innerHTML = `
@@ -172,7 +211,14 @@
                 completedTasks.push(task.id);
                 updateUI();
                 showFunFact(task.funFact);
-                if (completedTasks.length === tasks.length) {
+                playSound('complete');
+                if (Math.random() < 0.3) {  // 30% chance for bonus time
+                    const bonus = Math.floor(Math.random() * 20) + 10;  // 10-30 seconds bonus
+                    bonusTime += bonus;
+                    bonusTimeElement.textContent = bonusTime;
+                    playSound('bonus');
+                }
+                if (completedTasks.length === parseInt(totalTasksElement.textContent)) {
                     endGame();
                 }
             }
@@ -181,9 +227,9 @@
         function updateUI() {
             scoreElement.textContent = score;
             completedTasksElement.textContent = completedTasks.length;
-            progressElement.style.width = `${(completedTasks.length / tasks.length) * 100}%`;
-            tasks.forEach((task, index) => {
-                tasksContainer.children[index].disabled = completedTasks.includes(task.id);
+            progressElement.style.width = `${(completedTasks.length / parseInt(totalTasksElement.textContent)) * 100}%`;
+            Array.from(tasksContainer.children).forEach((taskButton, index) => {
+                taskButton.disabled = completedTasks.includes(tasks[index].id);
             });
         }
 
@@ -193,12 +239,18 @@
         }
 
         function startTimer() {
+            clearInterval(timerInterval);
             timerInterval = setInterval(() => {
-                timeLeft--;
+                if (bonusTime > 0) {
+                    bonusTime--;
+                    bonusTimeElement.textContent = bonusTime;
+                } else {
+                    timeLeft--;
+                }
                 const minutes = Math.floor(timeLeft / 60);
                 const seconds = timeLeft % 60;
                 timeLeftElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                if (timeLeft === 0) {
+                if (timeLeft === 0 && bonusTime === 0) {
                     endGame();
                 }
             }, 1000);
@@ -206,11 +258,39 @@
 
         function endGame() {
             clearInterval(timerInterval);
-            const message = timeLeft > 0
-                ? `וואו! הספקתם לתכנן את כל החתונה בזמן שיא! הניקוד הסופי שלכם: ${score}`
+            const message = (timeLeft > 0 || bonusTime > 0)
+                ? `וואו! הספקתם לתכנן את כל החתונה בזמן שיא! הניקוד הסופי שלכם: ${
+                    score}`
                 : `הזמן נגמר, אבל אל דאגה - החתונה תהיה מושלמת! הניקוד הסופי שלכם: ${score}`;
             congratsMessage.textContent = message;
             congratsModal.style.display = 'block';
+            updateHighScores(score);
+        }
+
+        function updateHighScores(newScore) {
+            highScores.push({score: newScore, difficulty: difficulty});
+            highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, 5);  // Keep only top 5 scores
+            localStorage.setItem('highScores', JSON.stringify(highScores));
+            displayHighScores();
+        }
+
+        function displayHighScores() {
+            highScoresList.innerHTML = '';
+            highScores.forEach((score, index) => {
+                const li = document.createElement('li');
+                li.textContent = `${score.score} נקודות (${getDifficultyInHebrew(score.difficulty)})`;
+                highScoresList.appendChild(li);
+            });
+        }
+
+        function getDifficultyInHebrew(diff) {
+            switch(diff) {
+                case 'easy': return 'קל';
+                case 'medium': return 'בינוני';
+                case 'hard': return 'קשה';
+                default: return diff;
+            }
         }
 
         function changeTheme() {
@@ -234,12 +314,43 @@
             }
         }
 
+        function changeDifficulty() {
+            difficulty = difficultySelect.value;
+            resetGame();
+        }
+
+        function resetGame() {
+            score = 0;
+            timeLeft = difficulty === 'easy' ? 420 : (difficulty === 'medium' ? 360 : 300);  // 7, 6, or 5 minutes
+            bonusTime = 0;
+            scoreElement.textContent = score;
+            bonusTimeElement.textContent = bonusTime;
+            initializeTasks();
+            updateUI();
+            startTimer();
+        }
+
+        function playSound(soundType) {
+            const audio = new Audio();
+            switch(soundType) {
+                case 'complete':
+                    audio.src = 'https://example.com/complete.mp3';  // Replace with actual sound file URL
+                    break;
+                case 'bonus':
+                    audio.src = 'https://example.com/bonus.mp3';  // Replace with actual sound file URL
+                    break;
+            }
+            audio.play().catch(e => console.error("Error playing sound:", e));
+        }
+
         // Initialize game
         initializeTasks();
         startTimer();
+        displayHighScores();
 
         // Event listeners
         themeButton.onclick = changeTheme;
+        difficultySelect.onchange = changeDifficulty;
         document.querySelectorAll('.close').forEach(closeButton => {
             closeButton.onclick = () => {
                 funFactModal.style.display = 'none';
